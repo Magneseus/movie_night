@@ -16,13 +16,16 @@ class VoteInfo:
     def __init__(self):
         self.vote_bar_filled = '█'
         self.vote_bar_empty = '░'
-        self.fuzzy_match_ratio = 0.4
+        self.fuzzy_match_ratio = 0.5
         
         self._enabled = False
         self._msg = None
         self._choices = []
         self._movie_votes = {}
         self._user_votes  = {}
+        
+        # TODO: Go through pinned messages to find previous votes that may have accidentally stayed pinned (eg. after a crash)
+        # TODO: On Shutdown, clear pinned message
     
     async def add_user_vote(self, vote:str, uid:str) -> None:
         """
@@ -35,7 +38,7 @@ class VoteInfo:
          - "a movie title that will be searched amongst results"
         """
         num_choices = len(self._choices)
-        lvote = vote.lower()
+        lvote = vote.strip().lower()
         
         # Make the user vote set, if it doesn't exist already
         if uid not in self._user_votes:
@@ -64,15 +67,15 @@ class VoteInfo:
         comparison = difflib.SequenceMatcher(None, lvote, "")
         
         for i in range(num_choices):
-            comparison.set_seq2(self._choices[i])
-            ratio = comparison.quick_ratio()
+            comparison.set_seq2(self._choices[i].lower())
+            ratio = comparison.ratio()
             
             if ratio > max_ratio:
                 max_ratio = ratio
                 index = i
         
         if max_ratio > self.fuzzy_match_ratio:
-            # We have a good match! 
+            # We have a good match!
             self._apply_vote(self._choices[index], uid)
             await self.update_vote_message(None)
             return
@@ -103,6 +106,8 @@ class VoteInfo:
                 self._apply_vote(_title, uid)
             
             await self.update_vote_message(None)
+        else:
+            raise VoteException("Could not parse your vote!")
     
     async def start_vote(self, choices:List[str], ctx:discord.ext.commands.Context) -> None:
         """Starts a new vote and posts a new vote message to the chat in the given context"""
