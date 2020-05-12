@@ -24,8 +24,7 @@ class VoteInfo:
         self._movie_votes = {}
         self._user_votes  = {}
         
-        # TODO: Go through pinned messages to find previous votes that may have accidentally stayed pinned (eg. after a crash)
-        # TODO: On Shutdown, clear pinned message
+        self.pin_vote = False
     
     async def add_user_vote(self, vote:str, uid:str) -> None:
         """
@@ -132,13 +131,17 @@ class VoteInfo:
         
         await self.update_vote_message(ctx)
         
-        try:
-            await self._msg.pin()
-        except (discord.Forbidden, discord.NotFound):
-            pass
-        except discord.HTTPException:
-            # TODO: Log this
-            raise VoteException("Unknown error occurred when pinning vote!")
+        if self.pin_vote:
+            try:
+                await self._msg.pin()
+            except (discord.Forbidden, discord.NotFound):
+                pass
+            except discord.HTTPException:
+                # TODO: Log this
+                raise VoteException("Unknown error occurred when pinning vote!")
+        
+        # TODO: Reactions
+        
     
     async def stop_vote(self, ctx:discord.ext.commands.Context) -> str:
         """
@@ -202,10 +205,10 @@ class VoteInfo:
             color=discord.Color.green()
         )
         """
+        
         try:
             if self._msg is None:
                 self._msg = await ctx.send(content=content)
-                
             else:
                 await self._msg.edit(content=content)
         except discord.Forbidden:
@@ -214,8 +217,6 @@ class VoteInfo:
         except discord.HTTPException:
             # TODO: log this
             raise VoteException("Unknown error occurred!")
-        
-        # TODO: add reactions
     
     def is_voting_enabled(self) -> bool:
         return self._enabled
@@ -232,14 +233,15 @@ class VoteInfo:
     
     async def _clear_msg(self) -> None:
         if self._msg is not None:
-            try:
-                await self._msg.unpin()
-            except (discord.Forbidden, discord.NotFound):
-                pass
-            except discord.HTTPException:
-                # TODO: Log this
-                self._enabled = False
-                raise VoteException("Unknown error occurred!")
+            if self.pin_vote:
+                try:
+                    await self._msg.unpin()
+                except (discord.Forbidden, discord.NotFound):
+                    pass
+                except discord.HTTPException:
+                    # TODO: Log this
+                    self._enabled = False
+                    raise VoteException("Unknown error occurred!")
                 
             self._msg = None
     
