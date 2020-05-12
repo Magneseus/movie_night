@@ -9,6 +9,8 @@ from croniter import croniter
 
 from .voteinfo import VoteInfo, VoteException
 
+# TODO: Automatic reminder for movie nights
+
 class MovieNightCog(commands.Cog):
     """Custom Movie Night Cog"""
     
@@ -26,7 +28,8 @@ class MovieNightCog(commands.Cog):
             "vote_size": 10,
             "suggestions": [],
             "timezone_str": "UTC",
-            "movie_time": "0 20 * * 5"
+            "movie_time": "0 20 * * 5",
+            "next_movie_title": ""
         }
         
         self.config.register_global(**default_global)
@@ -34,7 +37,6 @@ class MovieNightCog(commands.Cog):
         
         self.vote_info = {}
         
-    
     """Helper Functions"""
     async def get_vote_info(self, ctx: commands.Context) -> VoteInfo:
         if ctx.guild.id not in self.vote_info:
@@ -213,9 +215,18 @@ class MovieNightCog(commands.Cog):
         """Stops the ongoing vote for the next movie (if any)."""
         vinfo = await self.get_vote_info(ctx)
         try:
-            await vinfo.stop_vote(ctx)
+            winner = await vinfo.stop_vote(ctx)
         except VoteException as ve:
             await ctx.send(str(ve))
+        else:
+            # Remove the winner from the list and set it as the next movie title
+            async with self.config.guild(ctx.guild).suggestions() as suggestions:
+                try:
+                    suggestions.remove(winner)
+                except ValueError:
+                    pass
+            
+            await self.config.guild(ctx.guild).next_movie_title.set(winner)
     
     @_cmd_movie_night.command(name="cancel_vote")
     async def _cmd_cancel_vote(self, ctx: commands.Context):
