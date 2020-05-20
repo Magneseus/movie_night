@@ -25,7 +25,10 @@ class VoteInfo:
         self._user_votes  = {}
         
         self.pin_vote = False
+        
+        self.alpha_emoji = [VoteInfo.gen_alpha_emoji(i) for i in range(26)]
     
+    ''' Removed for now
     async def add_user_vote(self, vote:str, uid:str) -> None:
         """
         Applies a given vote from a user.
@@ -107,6 +110,7 @@ class VoteInfo:
             await self.update_vote_message(None)
         else:
             raise VoteException("Could not parse your vote!")
+    '''
     
     async def start_vote(self, choices:List[str], ctx:discord.ext.commands.Context) -> None:
         """Starts a new vote and posts a new vote message to the chat in the given context"""
@@ -141,7 +145,8 @@ class VoteInfo:
                 raise VoteException("Unknown error occurred when pinning vote!")
         
         # TODO: Reactions
-        
+        for i in range(len(self._choices)):
+            await self._msg.add_reaction(self.alpha_emoji[i])
     
     async def stop_vote(self, ctx:discord.ext.commands.Context) -> str:
         """
@@ -207,7 +212,7 @@ class VoteInfo:
         """
         
         try:
-            if self._msg is None:
+            if self._msg is None and ctx is not None:
                 self._msg = await ctx.send(content=content)
             else:
                 await self._msg.edit(content=content)
@@ -220,6 +225,28 @@ class VoteInfo:
     
     def is_voting_enabled(self) -> bool:
         return self._enabled
+    
+    async def reaction_add_listener(self, raw_reaction:discord.RawReactionActionEvent) -> None:
+        offset = VoteInfo.get_alpha_offset_from_emoji(raw_reaction.emoji)
+        if offset == -1 or offset >= len(self._choices):
+            return
+        
+        self._apply_vote(self._choices[offset], raw_reaction.user_id)
+        
+        print("test")
+        
+        # TODO: Apply a timer or something for larger servers (same for reaction adding/removing)
+        await self.update_vote_message(None)
+        
+    async def reaction_remove_listener(self, raw_reaction:discord.RawReactionActionEvent) -> None:
+        offset = VoteInfo.get_alpha_offset_from_emoji(raw_reaction.emoji)
+        if offset == -1 or offset >= len(self._choices):
+            return
+        
+        self._remove_vote(self._choices[offset], raw_reaction.user_id)
+        
+        # TODO: Apply a timer or something for larger servers (same for reaction adding/removing)
+        await self.update_vote_message(None)
     
     """ Private methods """
     
@@ -259,5 +286,36 @@ class VoteInfo:
         return self._choices[index]
     
     def _apply_vote(self, title:str, uid:str) -> None:
+        # Make the user vote set, if it doesn't exist already
+        if uid not in self._user_votes:
+            self._user_votes[uid] = set()
+        
         self._user_votes[uid].add(title)
         self._movie_votes[title]['votes'].add(uid)
+    
+    def _remove_vote(self, title:str, uid:str) -> None:
+        self._user_votes[uid].remove(title)
+        self._movie_votes[title]['votes'].remove(uid)
+    
+    @staticmethod
+    def gen_alpha_emoji(offset:int) -> str:
+        if offset < 0 or offset >= 26:
+            return ''
+        
+        start = b'\xff\xfe<\xd8'
+        middle = b'\xe6'
+        end = b'\xdd'
+        
+        final = start + bytes([middle[0] + offset]) + end
+        
+        return final.decode('utf-16')
+        
+    @staticmethod
+    def get_alpha_offset_from_emoji(emoji:discord.Emoji) -> int:
+        offset = ord(emoji.name) - 127462
+        
+        if offset < 0 or offset >= 26:
+            return -1
+        
+        return offset
+    

@@ -7,7 +7,7 @@ import pytz
 from datetime import datetime
 from croniter import croniter
 
-from .voteinfo import VoteInfo, VoteException
+from .voteinfo import VoteInfo, VoteException, alphabet
 
 # TODO: Automatic reminder for movie nights
 
@@ -38,11 +38,29 @@ class MovieNightCog(commands.Cog):
         self.vote_info = {}
         
     """Helper Functions"""
-    async def get_vote_info(self, ctx: commands.Context) -> VoteInfo:
-        if ctx.guild.id not in self.vote_info:
-            self.vote_info[ctx.guild.id] = VoteInfo()
+    async def get_vote_info(self, guild_id: int) -> VoteInfo:
+        if guild_id not in self.vote_info:
+            self.vote_info[guild_id] = VoteInfo()
         
-        return self.vote_info[ctx.guild.id]
+        return self.vote_info[guild_id]
+    
+    
+    """ Listeners """
+    @commands.Cog.listener()
+    async def on_raw_reaction_add(self, raw_reaction:discord.RawReactionActionEvent):
+        if raw_reaction.user_id == self.bot.user.id:
+            return
+        
+        vinfo = await self.get_vote_info(raw_reaction.guild_id)
+        await vinfo.reaction_add_listener(raw_reaction)
+    
+    @commands.Cog.listener()
+    async def on_raw_reaction_remove(self, raw_reaction:discord.RawReactionActionEvent):
+        if raw_reaction.user_id == self.bot.user.id:
+            return
+        
+        vinfo = await self.get_vote_info(raw_reaction.guild_id)
+        await vinfo.reaction_remove_listener(raw_reaction)
     
     
     """Global Commands"""
@@ -62,6 +80,7 @@ class MovieNightCog(commands.Cog):
     @commands.command(name="unsuggest")
     async def _cmd_del_suggestion(self, ctx: commands.Context, movie_index:int):
         """Removes a movie suggestion from the list of possible movies to watch. eg. [p]unsuggest 1"""
+        # TODO: Only allow users who suggested a movie to un-suggest one (and admins)
         movie_index = movie_index - 1
         
         async with self.config.guild(ctx.guild).suggestions() as suggestions:
@@ -71,6 +90,7 @@ class MovieNightCog(commands.Cog):
                 movie_name = suggestions.pop(movie_index)
                 await ctx.send(f"\"**{movie_name}**\" has been removed from the list of movie suggestions.")
     
+    ''' Removed for now
     @commands.command(name="vote")
     async def _cmd_vote(self, ctx: commands.Context, vote:str, *args):
         """
@@ -86,6 +106,7 @@ class MovieNightCog(commands.Cog):
             await ctx.send(str(ve))
         else:
             await ctx.send("Vote submitted!")
+    '''
     
     @commands.command(name="suggestions")
     async def _cmd_list_suggestions(self, ctx: commands.Context):
@@ -108,8 +129,24 @@ class MovieNightCog(commands.Cog):
     @commands.command(name="next_movie")
     async def _cmd_next_movie(self, ctx: commands.Context):
         """Prints the name and date of the next Movie Night."""
-        # TODO
-        pass
+        timezone_str = await self.config.guild(ctx.guild).timezone_str()
+        timezone = pytz.timezone(timezone_str)
+        
+        utc_now = datetime.utcnow().replace(tzinfo=pytz.utc)
+        local_now = utc_now.astimezone(timezone)
+        
+        cron_time = await self.config.guild(ctx.guild).movie_time()
+        next_movie_time = str(croniter(cron_time, local_now).get_next(datetime))
+        
+        # TODO: Better formatting for the timestamp
+        # Check if < 1 week, if so just say "Friday at 8pm"
+        # Otherwise if < 1 yr: 8pm on Friday, May 20th
+        # Otherwise: 8pm on Friday, May 20th, 2021
+        
+        next_movie_title = await self.config.guild(ctx.guild).next_movie_title()
+        movie_playing = f"\n**{next_movie_title}** will be playing!" if next_movie_title else ""
+        
+        await ctx.send(f"The next Movie Night is set for: `{next_movie_time}`{movie_playing}")
     
     """Admin Commands"""
     
@@ -141,6 +178,7 @@ class MovieNightCog(commands.Cog):
             
             await ctx.send(embed=em)
     
+    ''' Removed for now
     @_cmd_movie_night.command(name="reorder")
     async def _cmd_reorder_suggestions(self, ctx: commands.Context, new_order:str):
         """Re-orders the suggestions, relevant when a max. # of options is set for voting."""
@@ -176,6 +214,7 @@ class MovieNightCog(commands.Cog):
             
             await ctx.send(f"Suggestions have been re-ordered!")
             await self._cmd_list_suggestions(ctx)
+    '''
     
     @_cmd_movie_night.command(name="clear_suggestions")
     async def _cmd_clear_suggestions(self, ctx: commands.Context):
@@ -187,7 +226,7 @@ class MovieNightCog(commands.Cog):
     @_cmd_movie_night.command(name="size")
     async def _cmd_size_vote(self, ctx: commands.Context, num_options:int = 10):
         """Sets the maximum number of options when creating a vote."""
-        vinfo = await self.get_vote_info(ctx)
+        vinfo = await self.get_vote_info(ctx.guild.id)
         
         if vinfo.is_voting_enabled():
             await ctx.send("Cannot change the size of a vote while voting is occurring!")
@@ -200,7 +239,7 @@ class MovieNightCog(commands.Cog):
     @_cmd_movie_night.command(name="start_vote")
     async def _cmd_start_vote(self, ctx: commands.Context):
         """Starts a vote for choosing the next movie."""
-        vinfo = await self.get_vote_info(ctx)
+        vinfo = await self.get_vote_info(ctx.guild.id)
         
         suggestions = await self.config.guild(ctx.guild).suggestions()
         vote_size = await self.config.guild(ctx.guild).vote_size()
@@ -213,7 +252,7 @@ class MovieNightCog(commands.Cog):
     @_cmd_movie_night.command(name="stop_vote")
     async def _cmd_stop_vote(self, ctx: commands.Context):
         """Stops the ongoing vote for the next movie (if any)."""
-        vinfo = await self.get_vote_info(ctx)
+        vinfo = await self.get_vote_info(ctx.guild.id)
         try:
             winner = await vinfo.stop_vote(ctx)
         except VoteException as ve:
@@ -231,11 +270,13 @@ class MovieNightCog(commands.Cog):
     @_cmd_movie_night.command(name="cancel_vote")
     async def _cmd_cancel_vote(self, ctx: commands.Context):
         """Stops the ongoing vote for the next movie (if any)."""
-        vinfo = await self.get_vote_info(ctx)
+        vinfo = await self.get_vote_info(ctx.guild.id)
         try:
             await vinfo.cancel_vote()
         except VoteException as ve:
             await ctx.send(str(ve))
+        
+        await ctx.send("Voting cancelled!")
     
     @_cmd_movie_night.command(name="timezone")
     async def _cmd_set_timezone(self, ctx: commands.Context, new_timezone_str):
@@ -249,8 +290,11 @@ class MovieNightCog(commands.Cog):
             await ctx.send(f"Timezone set to: `{new_timezone_str}`")
     
     @_cmd_movie_night.command(name="reminder")
-    async def _cmd_set_movie_time(self, ctx: commands.Context):
+    async def _cmd_set_movie_time(self, ctx: commands.Context, new_movie_time:str):
         """Sets a reminder for when the next time to watch a movie is."""
-        async with self.config.guild(ctx.guild).movie_time() as movie_time:
-            # TODO
-            pass
+        if not croniter.is_valid(new_movie_time):
+            await ctx.send("Invalid cron timestamp!")
+            return
+        
+        await self.config.guild(ctx.guild).movie_time.set(new_movie_time)
+        await self._cmd_next_movie(ctx)
