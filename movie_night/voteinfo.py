@@ -112,7 +112,7 @@ class VoteInfo:
             raise VoteException("Could not parse your vote!")
     '''
     
-    async def start_vote(self, choices:List[str], ctx:discord.ext.commands.Context) -> None:
+    async def start_vote(self, choices:List[str], ctx:discord.ext.commands.Context) -> int:
         """Starts a new vote and posts a new vote message to the chat in the given context"""
         if self._enabled:
             raise VoteException("Voting has already started!")
@@ -121,17 +121,7 @@ class VoteInfo:
         await self._clear_vote()
         
         self._choices = choices
-        
-        for i in range(len(self._choices)):
-            # Generate movie_vote
-            key = self._choices[i] # title
-            entry = {
-                "title": key, # title
-                "alpha": alphabet[i], # alphabetical indicator
-                "votes": set() # set of user ids
-            }
-            
-            self._movie_votes[key] = entry
+        self._create_vote_structures()
         
         await self.update_vote_message(ctx)
         
@@ -144,9 +134,10 @@ class VoteInfo:
                 # TODO: Log this
                 raise VoteException("Unknown error occurred when pinning vote!")
         
-        # TODO: Reactions
         for i in range(len(self._choices)):
             await self._msg.add_reaction(self.alpha_emoji[i])
+        
+        return self._msg.id
     
     async def stop_vote(self, ctx:discord.ext.commands.Context) -> str:
         """
@@ -233,8 +224,6 @@ class VoteInfo:
         
         self._apply_vote(self._choices[offset], raw_reaction.user_id)
         
-        print("test")
-        
         # TODO: Apply a timer or something for larger servers (same for reaction adding/removing)
         await self.update_vote_message(None)
         
@@ -249,6 +238,45 @@ class VoteInfo:
         await self.update_vote_message(None)
     
     """ Private methods """
+    
+    def _create_vote_structures(self) -> None:
+        for i in range(len(self._choices)):
+            # Generate movie_vote
+            key = self._choices[i] # title
+            entry = {
+                "title": key, # title
+                "alpha": alphabet[i], # alphabetical indicator
+                "votes": set() # set of user ids
+            }
+            
+            self._movie_votes[key] = entry
+    
+    async def _set_prev_vote_msg(self, prev_vote_msg:discord.Message, suggestions:List[str]) -> None:
+        if prev_vote_msg is not None:
+            # If there is a previous vote (ie. the bot shutdown, or crashed)
+            # get the votes that are currently on the message
+            
+            # Set the current message
+            self._msg = prev_vote_msg
+            
+            # Create vote structures with the given choices
+            self._choices = suggestions
+            self._create_vote_structures()
+            
+            # Get the reactions (votes)
+            for react in prev_vote_msg.reactions:
+                async for user in react.users():
+                    offset = VoteInfo.get_alpha_offset_from_emoji(react.emoji)
+                    if offset == -1 or offset >= len(self._choices):
+                        continue
+                    
+                    self._apply_vote(self._choices[offset], user.id)
+            
+            # Set voting enabled
+            self._enabled = True
+            
+            # Update the message
+            await self.update_vote_message(None)
     
     async def _clear_vote(self) -> None:
         await self._clear_msg()
@@ -312,7 +340,10 @@ class VoteInfo:
         
     @staticmethod
     def get_alpha_offset_from_emoji(emoji:discord.Emoji) -> int:
-        offset = ord(emoji.name) - 127462
+        if (isinstance(emoji, discord.PartialEmoji)):
+            offset = ord(emoji.name) - 127462
+        else:
+            offset = ord(emoji) - 127462
         
         if offset < 0 or offset >= 26:
             return -1

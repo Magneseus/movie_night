@@ -29,7 +29,8 @@ class MovieNightCog(commands.Cog):
             "suggestions": [],
             "timezone_str": "UTC",
             "movie_time": "0 20 * * 5",
-            "next_movie_title": ""
+            "next_movie_title": "",
+            "prev_vote_msg_id": -1
         }
         
         self.config.register_global(**default_global)
@@ -38,9 +39,41 @@ class MovieNightCog(commands.Cog):
         self.vote_info = {}
         
     """Helper Functions"""
+    async def get_guild_message(self, guild:discord.Guild, message_id:int):
+        # TODO: Find a better way of loading messages after a restart, since this would be *very very* bad on a large server
+        # Probably, just setting a channel to be the *voting* channel would be easiest, but I'm lazy
+        
+        for channel in guild.text_channels:
+            try:
+                msg = await channel.fetch_message(message_id)
+            except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                continue
+            else:
+                return msg
+        
+        return None
+    
     async def get_vote_info(self, guild_id: int) -> VoteInfo:
+        # If a new structure needs to be made
         if guild_id not in self.vote_info:
+            # Create a VoteInfo structure
             self.vote_info[guild_id] = VoteInfo()
+            
+            # Check if there was a vote happening
+            msg = None
+            prev_vote_msg_id = await self.config.guild_from_id(guild_id).prev_vote_msg_id()
+            if prev_vote_msg_id > 0:
+                # Try to get the previous message
+                msg = await self.get_guild_message(self.bot.get_guild(guild_id), prev_vote_msg_id)
+                
+                # Failed to retrieve the message
+                if msg is None:
+                    # Set the prev_msg id to invalid
+                    await self.config.guild_from_id(guild_id).prev_vote_msg_id.set(-1)
+                else:
+                    # Get the list of suggestions for the server
+                    suggestions = await self.config.guild_from_id(guild_id).suggestions()
+                    await self.vote_info[guild_id]._set_prev_vote_msg(msg, suggestions)
         
         return self.vote_info[guild_id]
     
@@ -48,16 +81,16 @@ class MovieNightCog(commands.Cog):
     """ Listeners """
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, raw_reaction:discord.RawReactionActionEvent):
-        if raw_reaction.user_id == self.bot.user.id:
-            return
+        # if raw_reaction.user_id == self.bot.user.id:
+        #     return
         
         vinfo = await self.get_vote_info(raw_reaction.guild_id)
         await vinfo.reaction_add_listener(raw_reaction)
     
     @commands.Cog.listener()
     async def on_raw_reaction_remove(self, raw_reaction:discord.RawReactionActionEvent):
-        if raw_reaction.user_id == self.bot.user.id:
-            return
+        # if raw_reaction.user_id == self.bot.user.id:
+        #     return
         
         vinfo = await self.get_vote_info(raw_reaction.guild_id)
         await vinfo.reaction_remove_listener(raw_reaction)
@@ -245,9 +278,11 @@ class MovieNightCog(commands.Cog):
         vote_size = await self.config.guild(ctx.guild).vote_size()
         
         try:
-            await vinfo.start_vote(suggestions[:vote_size], ctx)
+            vote_msg_id = await vinfo.start_vote(suggestions[:vote_size], ctx)
         except VoteException as ve:
             await ctx.send(str(ve))
+        else:
+            await self.config.guild(ctx.guild).prev_vote_msg_id.set(vote_msg_id)
     
     @_cmd_movie_night.command(name="stop_vote")
     async def _cmd_stop_vote(self, ctx: commands.Context):
@@ -266,6 +301,8 @@ class MovieNightCog(commands.Cog):
                     pass
             
             await self.config.guild(ctx.guild).next_movie_title.set(winner)
+        finally:
+            await self.config.guild_from_id(ctx.guild).prev_vote_msg_id.set(-1)
     
     @_cmd_movie_night.command(name="cancel_vote")
     async def _cmd_cancel_vote(self, ctx: commands.Context):
@@ -275,8 +312,10 @@ class MovieNightCog(commands.Cog):
             await vinfo.cancel_vote()
         except VoteException as ve:
             await ctx.send(str(ve))
-        
-        await ctx.send("Voting cancelled!")
+        else:
+            await ctx.send("Voting cancelled!")
+        finally:
+            await self.config.guild(ctx.guild).prev_vote_msg_id.set(-1)
     
     @_cmd_movie_night.command(name="timezone")
     async def _cmd_set_timezone(self, ctx: commands.Context, new_timezone_str):
