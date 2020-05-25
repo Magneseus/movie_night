@@ -11,7 +11,8 @@
     "hidden": false,
     "install_msg": "Thanks for installing MovieNight! Get started with `[p]load movie_night` and `[p]help MovieNight`",
     "requirements": [
-        "croniter<0.4,>=0.3.31"
+        "croniter<0.4,>=0.3.31",
+        "pytz<=2020.1,>=2018.3"
     ],
     "short": "Bot for managing Movie Nights!",
     "tags": [
