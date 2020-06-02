@@ -174,7 +174,6 @@ class VoteInfo:
         title = "**Movie Vote:**\n"
         border = "= = = = ="
         msg = []
-        footer = "@everyone voting has started!\n" if self._msg is None else ""
         
         entry_list = sorted_votes if sort_list else self._movie_votes.values()
         
@@ -193,7 +192,7 @@ class VoteInfo:
             
             msg.append(f"{bar_fill}{bar_empty}{icon} - **{entry_title}** ({num_votes})")
         
-        content = title + border + "\n" + "\n".join(msg) + "\n" + border + footer
+        content = title + border + "\n" + "\n".join(msg) + "\n" + border
         
         """
         em = discord.Embed(
@@ -206,6 +205,7 @@ class VoteInfo:
         try:
             if self._msg is None and ctx is not None:
                 self._msg = await ctx.send(content=content)
+                await ctx.send("@everyone voting has started!\n")
             else:
                 await self._msg.edit(content=content)
         except discord.Forbidden:
