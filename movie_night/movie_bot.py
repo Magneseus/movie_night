@@ -85,6 +85,11 @@ class MovieNightCog(commands.Cog):
         #     return
         
         vinfo = await self.get_vote_info(raw_reaction.guild_id)
+        
+        # Check that the react is on the proper message
+        if not vinfo.check_msg_id(raw_reaction.message_id):
+            return
+        
         await vinfo.reaction_add_listener(raw_reaction)
     
     @commands.Cog.listener()
@@ -93,6 +98,11 @@ class MovieNightCog(commands.Cog):
         #     return
         
         vinfo = await self.get_vote_info(raw_reaction.guild_id)
+        
+        # Check that the react is on the proper message
+        if not vinfo.check_msg_id(raw_reaction.message_id):
+            return
+        
         await vinfo.reaction_remove_listener(raw_reaction)
     
     

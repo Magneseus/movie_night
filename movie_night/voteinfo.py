@@ -259,6 +259,9 @@ class VoteInfo:
         # TODO: Apply a timer or something for larger servers (same for reaction adding/removing)
         await self.update_vote_message(None)
     
+    def check_msg_id(self, id:int) -> bool:
+        return self._msg is not None and id == self._msg.id
+    
     """ Private methods """
     
     def _create_vote_structures(self) -> None:
