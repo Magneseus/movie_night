@@ -104,17 +104,34 @@ class MovieNightCog(commands.Cog):
         full_movie_title = movie_title + " " + " ".join(args)
         
         async with self.config.guild(ctx.guild).suggestions() as suggestions:
+            # Check that the max number of suggestions isn't reached
+            if len(suggestions) >= 26:
+                await ctx.send("Maximum number of suggestions has already been reached!")
+                return
+            
             if full_movie_title in suggestions:
                 await ctx.send(f"\"**{full_movie_title}**\" is already in the list!")
             else:
                 suggestions.append(full_movie_title)
                 await ctx.send(f"\"**{full_movie_title}**\" has been added to the list of movie suggestions.")
+            
+            # If a vote is on-going, add the suggestion to the vote list
+            vinfo = await self.get_vote_info(ctx.guild.id)
+            if vinfo.is_voting_enabled():
+                await vinfo.add_voting_option(movie_title)
+            
     
     @commands.command(name="unsuggest")
     async def _cmd_del_suggestion(self, ctx: commands.Context, movie_index:int):
         """Removes a movie suggestion from the list of possible movies to watch. eg. [p]unsuggest 1"""
         # TODO: Only allow users who suggested a movie to un-suggest one (and admins)
         movie_index = movie_index - 1
+        
+        # If a vote is happening don't allow people to remove suggestions
+        vinfo = await self.get_vote_info(ctx.guild.id)
+        if vinfo.is_voting_enabled():
+            await ctx.send("Cannot remove suggestions while a vote is in progress!")
+            return
         
         async with self.config.guild(ctx.guild).suggestions() as suggestions:
             if movie_index < 0 or movie_index >= len(suggestions):
@@ -256,6 +273,7 @@ class MovieNightCog(commands.Cog):
             suggestions.clear()
             await ctx.send("Suggestions list has been cleared!")
     
+    ''' Removed for now
     @_cmd_movie_night.command(name="size")
     async def _cmd_size_vote(self, ctx: commands.Context, num_options:int = 10):
         """Sets the maximum number of options when creating a vote."""
@@ -268,6 +286,7 @@ class MovieNightCog(commands.Cog):
         else:
             await self.config.guild(ctx.guild).vote_size.set(num_options)
             await ctx.send(f"Maximum number of choices for a vote is now set to: `{num_options}`")
+    '''
     
     @_cmd_movie_night.command(name="start_vote")
     async def _cmd_start_vote(self, ctx: commands.Context):
@@ -275,10 +294,10 @@ class MovieNightCog(commands.Cog):
         vinfo = await self.get_vote_info(ctx.guild.id)
         
         suggestions = await self.config.guild(ctx.guild).suggestions()
-        vote_size = await self.config.guild(ctx.guild).vote_size()
+        # vote_size = await self.config.guild(ctx.guild).vote_size()
         
         try:
-            vote_msg_id = await vinfo.start_vote(suggestions[:vote_size], ctx)
+            vote_msg_id = await vinfo.start_vote(suggestions, ctx)
         except VoteException as ve:
             await ctx.send(str(ve))
         else:

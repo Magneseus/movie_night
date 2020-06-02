@@ -214,6 +214,22 @@ class VoteInfo:
             # TODO: log this
             raise VoteException("Unknown error occurred!")
     
+    async def add_voting_option(self, movie_title:str) -> None:
+        """Add a new voting option to the vote, while vote is happening"""
+        index = len(self._choices) - 1
+        
+        # Add to the list of choices
+        self._choices.append(movie_title)
+        
+        # Create an entry in the voting structures
+        self._add_vote_structure(movie_title, index)
+        
+        # Update the voting message
+        await self.update_vote_message(None)
+        
+        # Add a react to the message
+        await self._msg.add_reaction(self.alpha_emoji[index])
+        
     def is_voting_enabled(self) -> bool:
         return self._enabled
     
@@ -243,13 +259,16 @@ class VoteInfo:
         for i in range(len(self._choices)):
             # Generate movie_vote
             key = self._choices[i] # title
-            entry = {
-                "title": key, # title
-                "alpha": alphabet[i], # alphabetical indicator
-                "votes": set() # set of user ids
-            }
-            
-            self._movie_votes[key] = entry
+            self._add_vote_structure(key, i)
+    
+    def _add_vote_structure(self, key, index) -> None:
+        entry = {
+            "title": key, # title
+            "alpha": alphabet[index], # alphabetical indicator
+            "votes": set() # set of user ids
+        }
+        
+        self._movie_votes[key] = entry
     
     async def _set_prev_vote_msg(self, prev_vote_msg:discord.Message, suggestions:List[str]) -> None:
         if prev_vote_msg is not None:
