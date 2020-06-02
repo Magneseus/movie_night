@@ -234,6 +234,9 @@ class VoteInfo:
         return self._enabled
     
     async def reaction_add_listener(self, raw_reaction:discord.RawReactionActionEvent) -> None:
+        if not self._enabled:
+            return
+        
         offset = VoteInfo.get_alpha_offset_from_emoji(raw_reaction.emoji)
         if offset == -1 or offset >= len(self._choices):
             return
@@ -244,6 +247,9 @@ class VoteInfo:
         await self.update_vote_message(None)
         
     async def reaction_remove_listener(self, raw_reaction:discord.RawReactionActionEvent) -> None:
+        if not self._enabled:
+            return
+        
         offset = VoteInfo.get_alpha_offset_from_emoji(raw_reaction.emoji)
         if offset == -1 or offset >= len(self._choices):
             return
