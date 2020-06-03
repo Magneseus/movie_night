@@ -311,6 +311,7 @@ class MovieNightCog(commands.Cog):
         except VoteException as ve:
             await ctx.send(str(ve))
         else:
+            await ctx.send(ctx.channel.mention + " has started!")
             await self.config.guild(ctx.guild).prev_vote_msg_id.set(vote_msg_id)
     
     @_cmd_movie_night.command(name="stop_vote")

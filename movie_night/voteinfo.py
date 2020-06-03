@@ -205,7 +205,6 @@ class VoteInfo:
         try:
             if self._msg is None and ctx is not None:
                 self._msg = await ctx.send(content=content)
-                await ctx.send("@everyone voting has started!\n")
             else:
                 await self._msg.edit(content=content)
         except discord.Forbidden:
