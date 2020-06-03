@@ -217,7 +217,7 @@ class VoteInfo:
     
     async def add_voting_option(self, movie_title:str) -> None:
         """Add a new voting option to the vote, while vote is happening"""
-        index = len(self._choices) - 1
+        index = len(self._choices)
         
         # Add to the list of choices
         self._choices.append(movie_title)
