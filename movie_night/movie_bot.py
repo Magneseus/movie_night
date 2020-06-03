@@ -331,7 +331,7 @@ class MovieNightCog(commands.Cog):
             
             await self.config.guild(ctx.guild).next_movie_title.set(winner)
         finally:
-            await self.config.guild_from_id(ctx.guild).prev_vote_msg_id.set(-1)
+            await self.config.guild(ctx.guild).prev_vote_msg_id.set(-1)
     
     @_cmd_movie_night.command(name="cancel_vote")
     async def _cmd_cancel_vote(self, ctx: commands.Context):
