@@ -169,7 +169,7 @@ class VoteInfo:
     async def update_vote_message(self, ctx:discord.ext.commands.Context, sort_list:bool=False) -> None:
         """Creates a new (or updates the current) vote message in a given context"""
         sorted_votes = self._sorted_movie_votes()
-        max_votes = len(sorted_votes[0]['votes'])
+        max_votes = len(sorted_votes[0]['votes']) if len(sorted_votes) > 0 else 0
         
         title = "**Movie Vote:**\n"
         border = "= = = = ="

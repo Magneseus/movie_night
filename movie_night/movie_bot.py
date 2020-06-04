@@ -306,6 +306,11 @@ class MovieNightCog(commands.Cog):
         suggestions = await self.config.guild(ctx.guild).suggestions()
         # vote_size = await self.config.guild(ctx.guild).vote_size()
         
+        # Stop the vote if there are no suggestions
+        if len(suggestions) <= 0:
+            await ctx.send("Cannot run a vote with no suggestions.")
+            return
+        
         try:
             vote_msg_id = await vinfo.start_vote(suggestions, ctx)
         except VoteException as ve:
