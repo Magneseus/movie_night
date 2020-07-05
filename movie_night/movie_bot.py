@@ -115,7 +115,7 @@ class MovieNightCog(commands.Cog):
         
         async with self.config.guild(ctx.guild).suggestions() as suggestions:
             # Check that the max number of suggestions isn't reached
-            if len(suggestions) >= 26:
+            if len(suggestions) >= 20:
                 await ctx.send("Maximum number of suggestions has already been reached!")
                 return
             
