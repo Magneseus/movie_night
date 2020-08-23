@@ -111,7 +111,7 @@ class MovieNightCog(commands.Cog):
     @commands.command(name="suggest")
     async def _cmd_add_suggestion(self, ctx: commands.Context, movie_title:str, *args):
         """Adds a movie suggestion to the list of possible movies to watch."""
-        full_movie_title = movie_title + " " + " ".join(args)
+        movie_title = movie_title + " " + " ".join(args)
         
         async with self.config.guild(ctx.guild).suggestions() as suggestions:
             # Check that the max number of suggestions isn't reached
@@ -119,11 +119,11 @@ class MovieNightCog(commands.Cog):
                 await ctx.send("Maximum number of suggestions has already been reached!")
                 return
             
-            if full_movie_title in suggestions:
-                await ctx.send(f"\"**{full_movie_title}**\" is already in the list!")
+            if movie_title in suggestions:
+                await ctx.send(f"\"**{movie_title}**\" is already in the list!")
             else:
-                suggestions.append(full_movie_title)
-                await ctx.send(f"\"**{full_movie_title}**\" has been added to the list of movie suggestions.")
+                suggestions.append(movie_title)
+                await ctx.send(f"\"**{movie_title}**\" has been added to the list of movie suggestions.")
             
             # If a vote is on-going, add the suggestion to the vote list
             vinfo = await self.get_vote_info(ctx.guild.id)
@@ -316,7 +316,7 @@ class MovieNightCog(commands.Cog):
         except VoteException as ve:
             await ctx.send(str(ve))
         else:
-            await ctx.send(ctx.channel.mention + " has started!")
+            await ctx.send(ctx.guild.default_role.mention + " has started!")
             await self.config.guild(ctx.guild).prev_vote_msg_id.set(vote_msg_id)
     
     @_cmd_movie_night.command(name="stop_vote")
