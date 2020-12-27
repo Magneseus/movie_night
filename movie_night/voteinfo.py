@@ -162,11 +162,11 @@ class VoteInfo:
             winner = random.choice(tie_list)
             
             tie_text = "**, **".join([movie['title'] for movie in tie_list[:-1]])
-            tie_text = F"**{tie_text}, and **{tie_list[-1]['title']}** were all tied."
+            tie_text = F"**{tie_text}**, and **{tie_list[-1]['title']}** were all tied."
         
         await self._clear_msg()
         await self.update_vote_message(ctx, sort_list=True)
-        await ctx.send(F"The winner of the vote, with {num_votes}, is: **{winner['title']}.**\n{tie_text}")
+        await ctx.send(F"The winner of the vote, with {num_votes}, is: **{winner['title']}**.\n{tie_text}")
         
         return winner['title']
     
