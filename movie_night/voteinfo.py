@@ -1,5 +1,6 @@
 import discord
 import difflib
+import random
 
 from typing import List, Tuple, Dict
 from functools import cmp_to_key
@@ -149,8 +150,15 @@ class VoteInfo:
             raise VoteException("Voting hasn't started!")
         
         self._enabled = False
-        winner = self._sorted_movie_votes()[0]
-        num_votes = len(winner['votes'])
+        
+        sorted_movie_list = self._sorted_movie_votes()
+        num_votes = len(sorted_movie_list[0]['votes'])
+        winner = None
+        
+        # Check if there is a tie and handle this with a random selection
+        if len(sorted_movie_list) > 1 and len(sorted_movie_list[1]['votes']) == num_votes:
+            tie_list = [movie for movie in sorted_movie_list if len(movie['votes']) == num_votes]
+            winner = random.choice(tie_list)
         
         await self._clear_msg()
         await self.update_vote_message(ctx, sort_list=True)
