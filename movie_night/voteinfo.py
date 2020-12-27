@@ -154,15 +154,19 @@ class VoteInfo:
         sorted_movie_list = self._sorted_movie_votes()
         num_votes = len(sorted_movie_list[0]['votes'])
         winner = None
+        tie_text = ""
         
         # Check if there is a tie and handle this with a random selection
         if len(sorted_movie_list) > 1 and len(sorted_movie_list[1]['votes']) == num_votes:
             tie_list = [movie for movie in sorted_movie_list if len(movie['votes']) == num_votes]
             winner = random.choice(tie_list)
+            
+            tie_text = ",".join([movie['title'] for movie in tie_list[:-1]])
+            tie_text = F"{tie_text}, and {tie_text[-1]} were all tied."
         
         await self._clear_msg()
         await self.update_vote_message(ctx, sort_list=True)
-        await ctx.send(F"The winner of the vote, with {num_votes}, is: **{winner['title']}**")
+        await ctx.send(F"The winner of the vote, with {num_votes}, is: **{winner['title']}.** {tie_text}")
         
         return winner['title']
     
