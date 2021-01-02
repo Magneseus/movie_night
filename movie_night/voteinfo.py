@@ -153,7 +153,7 @@ class VoteInfo:
         
         sorted_movie_list = self._sorted_movie_votes()
         num_votes = len(sorted_movie_list[0]['votes'])
-        winner = None
+        winner = sorted_movie_list[0]
         tie_text = ""
         
         # Check if there is a tie and handle this with a random selection
