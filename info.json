@@ -1,7 +1,7 @@
 {
-    "AUTHOR": "Magneseus",
-    "INSTALL_MSG": "",
-    "NAME": "Mogs",
-    "SHORT": "Various Cogs",
-    "DESCRIPTION": "Various cogs created just for fun."
+    "author": ["Magneseus"],
+    "install_msg": "Mogs!",
+    "name": "Mogs",
+    "short": "Various Cogs",
+    "description": "Various cogs created just for fun."
 }

@@ -1,12 +1,5 @@
 {
-    "author": [
-        "Magneseus"
-    ],
-    "bot_version": [
-        1,
-        1,
-        0
-    ],
+    "author": ["Magneseus"],
     "description": "A bot to handle scheduling and managing movie nights with friends!",
     "hidden": false,
     "install_msg": "Thanks for installing MovieNight! Get started with `[p]load movie_night` and `[p]help MovieNight`",
