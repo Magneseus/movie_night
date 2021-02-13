@@ -1,4 +1,5 @@
 import discord
+from fuzzysearch import find_near_matches
 from redbot.core import commands
 from redbot.core import Config
 from redbot.core import checks
@@ -72,6 +73,24 @@ class MovieNightCog(commands.Cog):
         
         return self.vote_info[guild_id]
     
+    def represents_int(self, var) -> bool:
+        try:
+            int(var)
+            return True
+        except ValueError:
+            return False
+    
+    def fuzzy_suggestion_search(self, suggestion, suggestion_list):
+        lowest_match = None
+        lowest_score = 100
+        for s in suggestion_list:
+            matches = find_near_matches(suggestion.lower(), s.lower(), max_l_dist=max(5, len(s)-2))
+            score = sorted(matches, key=lambda x: x.dist)
+            if len(score) > 0 and score[0].dist < lowest_score:
+                lowest_score = score[0].dist
+                lowest_match = s
+            
+        return lowest_match
     
     """ Listeners """
     @commands.Cog.listener()
@@ -126,23 +145,48 @@ class MovieNightCog(commands.Cog):
                 await vinfo.add_voting_option(movie_title)
     
     @commands.command(name="unsuggest")
-    async def _cmd_del_suggestion(self, ctx: commands.Context, movie_index:int):
-        """Removes a movie suggestion from the list of possible movies to watch. eg. [p]unsuggest 1"""
+    async def _cmd_del_suggestion(self, ctx: commands.Context, suggestion, *args):
+        """Removes a movie suggestion from the list of possible movies to watch. eg. [p]unsuggest 1 OR [p]unsuggest <movie_name>"""
         # TODO: Only allow users who suggested a movie to un-suggest one (and admins)
-        movie_index = movie_index - 1
         
+        # TODO: Allow this
         # If a vote is happening don't allow people to remove suggestions
         vinfo = await self.get_vote_info(ctx.guild.id)
         if vinfo.is_voting_enabled():
             await ctx.send("Cannot remove suggestions while a vote is in progress!")
             return
         
-        async with self.config.guild(ctx.guild).suggestions() as suggestions:
-            if movie_index < 0 or movie_index >= len(suggestions):
-                await ctx.send(f"That isn't a valid index, sorry! Please check the current list with: `{ctx.prefix}suggestions`.")
-            else:
-                movie_name = suggestions.pop(movie_index)
-                await ctx.send(f"\"**{movie_name}**\" has been removed from the list of movie suggestions.")
+        suggestion = suggestion + " " + " ".join(args)
+        movie_index = None
+        
+        if self.represents_int(suggestion):
+            # Check if it's an integer or a movie title (prefer integer)
+            movie_index = int(suggestion)
+        
+        if movie_index is not None:
+            # Index removal
+            movie_index = movie_index - 1
+            
+            async with self.config.guild(ctx.guild).suggestions() as suggestions:
+                if movie_index < 0 or movie_index >= len(suggestions):
+                    await ctx.send(f"That isn't a valid index, sorry! Please check the current list with: `{ctx.prefix}suggestions`.")
+                else:
+                    movie_name = suggestions.pop(movie_index)
+                    await ctx.send(f"\"**{movie_name}**\" has been removed from the list of movie suggestions.")
+        else:
+            # Fuzzy search removal
+            async with self.config.guild(ctx.guild).suggestions() as suggestions:
+                search_result = self.fuzzy_suggestion_search(suggestion, suggestions)
+                
+                if search_result is not None:
+                    try:
+                        suggestions.remove(search_result)
+                        await ctx.send(f"\"**{search_result}**\" has been removed from the list of movie suggestions.")
+                    except ValueError:
+                        await ctx.send(f"Error when removing matched movie title! `{suggestion} -> {search_result}`")
+                else:
+                    await ctx.send(f"Could not find that movie title!")
+                
     
     @commands.command(name="suggestions")
     async def _cmd_list_suggestions(self, ctx: commands.Context):
