@@ -3,13 +3,7 @@ from redbot.core import commands
 from redbot.core import Config
 from redbot.core import checks
 
-import pytz
-from datetime import datetime
-from croniter import croniter
-
-from .voteinfo import VoteInfo, VoteException, alphabet
-
-# TODO: Automatic reminder for movie nights
+from .voteinfo import VoteInfo, VoteException
 
 class MovieNightCog(commands.Cog):
     """Custom Movie Night Cog"""
@@ -25,11 +19,11 @@ class MovieNightCog(commands.Cog):
         default_global = {}
         
         default_guild = {
-            "vote_size": 10,
+            "vote_size": 10,            # Deprecated
             "suggestions": [],
-            "timezone_str": "UTC",
-            "movie_time": "0 20 * * 5",
-            "next_movie_title": "",
+            "timezone_str": "UTC",      # Deprecated
+            "movie_time": "0 20 * * 5", # Deprecated
+            "next_movie_title": "",     # Deprecated
             "prev_vote_msg_id": -1
         }
         
@@ -47,6 +41,7 @@ class MovieNightCog(commands.Cog):
             try:
                 msg = await channel.fetch_message(message_id)
             except (discord.NotFound, discord.Forbidden, discord.HTTPException):
+                #TODO: Find a way to retry this sanely
                 continue
             else:
                 return msg
@@ -129,7 +124,6 @@ class MovieNightCog(commands.Cog):
             vinfo = await self.get_vote_info(ctx.guild.id)
             if vinfo.is_voting_enabled():
                 await vinfo.add_voting_option(movie_title)
-            
     
     @commands.command(name="unsuggest")
     async def _cmd_del_suggestion(self, ctx: commands.Context, movie_index:int):
@@ -150,32 +144,11 @@ class MovieNightCog(commands.Cog):
                 movie_name = suggestions.pop(movie_index)
                 await ctx.send(f"\"**{movie_name}**\" has been removed from the list of movie suggestions.")
     
-    ''' Removed for now
-    @commands.command(name="vote")
-    async def _cmd_vote(self, ctx: commands.Context, vote:str, *args):
-        """
-        Votes for one or more movies in the current vote. eg. [p]vote a | [p]vote a,d,e
-        (Hint: You can also use the reacts down below to vote!)
-        """
-        full_vote = vote + " " + " ".join(args)
-        vinfo = await self.get_vote_info(ctx)
-        
-        try:
-            await vinfo.add_user_vote(full_vote, ctx.message.author.id)
-        except VoteException as ve:
-            await ctx.send(str(ve))
-        else:
-            await ctx.send("Vote submitted!")
-    '''
-    
     @commands.command(name="suggestions")
     async def _cmd_list_suggestions(self, ctx: commands.Context):
         """Lists all current movie suggestions."""
         suggestions = await self.config.guild(ctx.guild).suggestions()
-        
-        #suggestions_list = list(map(lambda x: f"{x[0]}) {x[1]}\n", zip(range(1, len(suggestions)+1), suggestions)))
         suggestions_list = [f"{ind}) {suggestions[ind-1]}\n" for ind in range(1, len(suggestions)+1)]
-        
         suggestions_str = "".join(suggestions_list)
         
         em = discord.Embed(
@@ -186,27 +159,6 @@ class MovieNightCog(commands.Cog):
         
         await ctx.send(embed=em)
     
-    @commands.command(name="next_movie")
-    async def _cmd_next_movie(self, ctx: commands.Context):
-        """Prints the name and date of the next Movie Night."""
-        timezone_str = await self.config.guild(ctx.guild).timezone_str()
-        timezone = pytz.timezone(timezone_str)
-        
-        utc_now = datetime.utcnow().replace(tzinfo=pytz.utc)
-        local_now = utc_now.astimezone(timezone)
-        
-        cron_time = await self.config.guild(ctx.guild).movie_time()
-        next_movie_time = str(croniter(cron_time, local_now).get_next(datetime))
-        
-        # TODO: Better formatting for the timestamp
-        # Check if < 1 week, if so just say "Friday at 8pm"
-        # Otherwise if < 1 yr: 8pm on Friday, May 20th
-        # Otherwise: 8pm on Friday, May 20th, 2021
-        
-        next_movie_title = await self.config.guild(ctx.guild).next_movie_title()
-        movie_playing = f"\n**{next_movie_title}** will be playing!" if next_movie_title else ""
-        
-        await ctx.send(f"The next Movie Night is set for: `{next_movie_time}`{movie_playing}")
     
     """Admin Commands"""
     
@@ -220,14 +172,10 @@ class MovieNightCog(commands.Cog):
             title = "**Welcome to Movie Nights.**\n"
             description = """\n
             **Commands**\n
-            ``{0}mn reorder``: Re-orders the list of movie suggestions.\n
             ``{0}mn clear_suggestions``: Clears the list of movie suggestions.\n
             ``{0}mn start_vote``: Starts a vote for the next movie to watch.\n
             ``{0}mn stop_vote``: Stops the on-going vote for the next movie to watch.\n
             ``{0}mn cancel_vote``: Cancels the on-going vote.\n
-            ``{0}mn size``: Changes the maximum number of options for votes.\n
-            ``{0}mn timezone``: Sets the timezone for the server.\n
-            ``{0}mn reminder``: Sets a reoccurring reminder for Movie Nights!\n
             \n"""
             
             em = discord.Embed(
@@ -238,44 +186,6 @@ class MovieNightCog(commands.Cog):
             
             await ctx.send(embed=em)
     
-    ''' Removed for now
-    @_cmd_movie_night.command(name="reorder")
-    async def _cmd_reorder_suggestions(self, ctx: commands.Context, new_order:str):
-        """Re-orders the suggestions, relevant when a max. # of options is set for voting."""
-        try:
-            order_list = list(map(lambda x: int(x) - 1, new_order.split(",")))
-        except ValueError:
-            await ctx.send("Format must be comma-separated numbers!")
-            return
-        
-        async with self.config.guild(ctx.guild).suggestions() as suggestions:
-            verify = list(set(order_list))
-            verify_len = len(verify)
-            
-            if verify_len != len(order_list):
-                await ctx.send("Cannot contain duplicate indices!")
-                return
-            
-            verify.sort()
-            start_ind = verify[0]
-            end_ind = verify[-1]
-            
-            if verify_len == 0 or verify_len > len(suggestions) or verify[0] < 0 or verify[-1] >= len(suggestions) or (verify[-1] - verify[0] + 1) != verify_len:
-                await ctx.send("Re-ordered list must be a non-empty subset of the *ordered* suggestions list, and contain all values between the subset's least and greatest elements.")
-                return
-            
-            new_suggestions = suggestions[0:start_ind]
-            for ind in order_list:
-                new_suggestions.append(suggestions[ind])
-            new_suggestions += suggestions[end_ind+1:]
-            
-            suggestions.clear()
-            suggestions += new_suggestions
-            
-            await ctx.send(f"Suggestions have been re-ordered!")
-            await self._cmd_list_suggestions(ctx)
-    '''
-    
     @_cmd_movie_night.command(name="clear_suggestions")
     async def _cmd_clear_suggestions(self, ctx: commands.Context):
         """Clears the suggestions list."""
@@ -283,28 +193,12 @@ class MovieNightCog(commands.Cog):
             suggestions.clear()
             await ctx.send("Suggestions list has been cleared!")
     
-    ''' Removed for now
-    @_cmd_movie_night.command(name="size")
-    async def _cmd_size_vote(self, ctx: commands.Context, num_options:int = 10):
-        """Sets the maximum number of options when creating a vote."""
-        vinfo = await self.get_vote_info(ctx.guild.id)
-        
-        if vinfo.is_voting_enabled():
-            await ctx.send("Cannot change the size of a vote while voting is occurring!")
-        elif num_options <= 0 or num_options > 26:
-            await ctx.send("Cannot change the size of a vote to a number <= 0 or > 26!")
-        else:
-            await self.config.guild(ctx.guild).vote_size.set(num_options)
-            await ctx.send(f"Maximum number of choices for a vote is now set to: `{num_options}`")
-    '''
-    
     @_cmd_movie_night.command(name="start_vote")
     async def _cmd_start_vote(self, ctx: commands.Context):
         """Starts a vote for choosing the next movie."""
         vinfo = await self.get_vote_info(ctx.guild.id)
         
         suggestions = await self.config.guild(ctx.guild).suggestions()
-        # vote_size = await self.config.guild(ctx.guild).vote_size()
         
         # Stop the vote if there are no suggestions
         if len(suggestions) <= 0:
@@ -351,24 +245,3 @@ class MovieNightCog(commands.Cog):
             await ctx.send("Voting cancelled!")
         finally:
             await self.config.guild(ctx.guild).prev_vote_msg_id.set(-1)
-    
-    @_cmd_movie_night.command(name="timezone")
-    async def _cmd_set_timezone(self, ctx: commands.Context, new_timezone_str):
-        """Sets the timezone for a specific guild."""
-        try:
-            pytz.timezone(new_timezone_str)
-        except pytz.exceptions.UnknownTimeZoneError:
-            await ctx.send("Invalid timezone!")
-        else:
-            await self.config.guild(ctx.guild).timezone_str.set(new_timezone_str)
-            await ctx.send(f"Timezone set to: `{new_timezone_str}`")
-    
-    @_cmd_movie_night.command(name="reminder")
-    async def _cmd_set_movie_time(self, ctx: commands.Context, new_movie_time:str):
-        """Sets a reminder for when the next time to watch a movie is."""
-        if not croniter.is_valid(new_movie_time):
-            await ctx.send("Invalid cron timestamp!")
-            return
-        
-        await self.config.guild(ctx.guild).movie_time.set(new_movie_time)
-        await self._cmd_next_movie(ctx)

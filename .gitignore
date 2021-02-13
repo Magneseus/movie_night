@@ -131,3 +131,4 @@ dmypy.json
 # User stuff
 movie_night_bot/
 *.code-workspace
+.vscode/settings.json
