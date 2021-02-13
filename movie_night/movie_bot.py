@@ -76,8 +76,8 @@ class MovieNightCog(commands.Cog):
     """ Listeners """
     @commands.Cog.listener()
     async def on_raw_reaction_add(self, raw_reaction:discord.RawReactionActionEvent):
-        # if raw_reaction.user_id == self.bot.user.id:
-        #     return
+        if raw_reaction.user_id == self.bot.user.id:
+            return
         
         vinfo = await self.get_vote_info(raw_reaction.guild_id)
         
@@ -89,8 +89,8 @@ class MovieNightCog(commands.Cog):
     
     @commands.Cog.listener()
     async def on_raw_reaction_remove(self, raw_reaction:discord.RawReactionActionEvent):
-        # if raw_reaction.user_id == self.bot.user.id:
-        #     return
+        if raw_reaction.user_id == self.bot.user.id:
+            return
         
         vinfo = await self.get_vote_info(raw_reaction.guild_id)
         
@@ -218,16 +218,15 @@ class MovieNightCog(commands.Cog):
         """Stops the ongoing vote for the next movie (if any)."""
         vinfo = await self.get_vote_info(ctx.guild.id)
         try:
-            winner = await vinfo.stop_vote(ctx)
+            winner, bad_votes = await vinfo.stop_vote(ctx)
         except VoteException as ve:
             await ctx.send(str(ve))
         else:
-            # Remove the winner from the list and set it as the next movie title
             async with self.config.guild(ctx.guild).suggestions() as suggestions:
-                try:
-                    suggestions.remove(winner)
-                except ValueError:
-                    pass
+                # Remove the winner from the list and set it as the next movie title
+                # Also remove the "bad votes"
+                removal_list = [winner, *bad_votes]
+                suggestions = [x for x in suggestions if x not in removal_list]
             
             await self.config.guild(ctx.guild).next_movie_title.set(winner)
         finally:

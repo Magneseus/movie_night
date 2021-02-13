@@ -1,7 +1,7 @@
 import discord
 import random
 
-from typing import List, Dict
+from typing import List, Tuple, Dict, Optional
 from functools import cmp_to_key
 
 alphabet = 'a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z'.split(',')
@@ -55,11 +55,12 @@ class VoteInfo:
         
         return self._msg.id
     
-    async def stop_vote(self, ctx:discord.ext.commands.Context) -> str:
+    async def stop_vote(self, ctx:discord.ext.commands.Context) -> Tuple(str, Optional(List[str])):
         """
         Stops a vote, 
         updates the vote message with the final results,
-        and returns the name of the winning vote
+        and returns the name of the winning vote as well as
+        the names of all low-voted options
         """
         if not self._enabled:
             raise VoteException("Voting hasn't started!")
@@ -79,11 +80,14 @@ class VoteInfo:
             tie_text = "**, **".join([movie['title'] for movie in tie_list[:-1]])
             tie_text = F"**{tie_text}**, and **{tie_list[-1]['title']}** were all tied."
         
+        # Get a list of 
+        bad_votes = [movie['title'] for movie in sorted_movie_list if len(movie['votes']) == 0]
+        
         await self._clear_msg()
         await self.update_vote_message(ctx, sort_list=True)
         await ctx.send(F"The winner of the vote, with {num_votes}, is: **{winner['title']}**.\n{tie_text}")
         
-        return winner['title']
+        return (winner['title'], bad_votes)
     
     async def cancel_vote(self) -> None:
         """Stops a vote and does not post any results"""
