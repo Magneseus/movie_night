@@ -1,8 +1,7 @@
 import discord
-import difflib
 import random
 
-from typing import List, Tuple, Dict
+from typing import List, Dict
 from functools import cmp_to_key
 
 alphabet = 'a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z'.split(',')
@@ -28,90 +27,6 @@ class VoteInfo:
         self.pin_vote = False
         
         self.alpha_emoji = [VoteInfo.gen_alpha_emoji(i) for i in range(26)]
-    
-    ''' Removed for now
-    async def add_user_vote(self, vote:str, uid:str) -> None:
-        """
-        Applies a given vote from a user.
-        
-        Allowed formats:
-         - "a"
-         - "b"
-         - "a,b,d"
-         - "a movie title that will be searched amongst results"
-        """
-        num_choices = len(self._choices)
-        lvote = vote.strip().lower()
-        
-        # Make the user vote set, if it doesn't exist already
-        if uid not in self._user_votes:
-            self._user_votes[uid] = set()
-        
-        
-        # One vote, with one letter
-        if len(lvote) == 1 and lvote in alphabet[:num_choices]:
-            title = self._get_movie_from_alpha(lvote)
-            
-            if title is None:
-                raise VoteException(f"Invalid voting option: `{lvote}`")
-            
-            if title in self._user_votes[uid]:
-                raise VoteException("You have already voted for that option!")
-            
-            self._apply_vote(title, uid)
-            await self.update_vote_message(None)
-            return
-        
-        
-        # Maybe a title?
-        # TODO: Use something like Levenshtein instead of simple sub-string comparisons
-        max_ratio = 0
-        index = -1
-        comparison = difflib.SequenceMatcher(None, lvote, "")
-        
-        for i in range(num_choices):
-            comparison.set_seq2(self._choices[i].lower())
-            ratio = comparison.ratio()
-            
-            if ratio > max_ratio:
-                max_ratio = ratio
-                index = i
-        
-        if max_ratio > self.fuzzy_match_ratio:
-            # We have a good match!
-            self._apply_vote(self._choices[index], uid)
-            await self.update_vote_message(None)
-            return
-        
-        
-        # Multiple votes, each one letter
-        commas = set(lvote[1::2])
-        if len(commas) == 1 and ',' in commas:
-            votes = sorted(lvote[::2])
-            duplicates = set(votes)
-            
-            if len(duplicates) != len(votes):
-                raise VoteException("Vote list cannot contain duplicates!")
-            
-            if not duplicates.issubset(alphaset):
-                raise VoteException("Vote list can only contain letters!")
-            
-            titles_to_vote_for = []
-            for _vote in votes:
-                title = self._get_movie_from_alpha(_vote)
-                if title is None:
-                    raise VoteException(f"Invalid voting option: `{_vote}`")
-                
-                titles_to_vote_for.append(title)
-            
-            # NOTE: We will choose to silently ignore any duplicate votes for this type of voting
-            for _title in titles_to_vote_for:
-                self._apply_vote(_title, uid)
-            
-            await self.update_vote_message(None)
-        else:
-            raise VoteException("Could not parse your vote!")
-    '''
     
     async def start_vote(self, choices:List[str], ctx:discord.ext.commands.Context) -> int:
         """Starts a new vote and posts a new vote message to the chat in the given context"""
