@@ -223,10 +223,18 @@ class MovieNightCog(commands.Cog):
             await ctx.send(str(ve))
         else:
             async with self.config.guild(ctx.guild).suggestions() as suggestions:
-                # Remove the winner from the list and set it as the next movie title
-                # Also remove the "bad votes"
-                removal_list = [winner, *bad_votes]
-                suggestions = [x for x in suggestions if x not in removal_list]
+                try:
+                    # Remove the winner from the list and set it as the next movie title
+                    suggestions.remove(winner)
+                except ValueError:
+                    pass
+                
+                for x in bad_votes:
+                    try:
+                        # Also remove the "bad votes"
+                        suggestions.remove(x)
+                    except ValueError:
+                        pass
             
             await self.config.guild(ctx.guild).next_movie_title.set(winner)
         finally:
