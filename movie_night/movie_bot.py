@@ -84,7 +84,7 @@ class MovieNightCog(commands.Cog):
         lowest_match = None
         lowest_score = 100
         for s in suggestion_list:
-            matches = find_near_matches(suggestion.lower(), s.lower(), max_l_dist=max(5, len(s)-2))
+            matches = find_near_matches(suggestion.lower(), s.lower(), max_l_dist=min(5, len(s)-2))
             score = sorted(matches, key=lambda x: x.dist)
             if len(score) > 0 and score[0].dist < lowest_score:
                 lowest_score = score[0].dist
