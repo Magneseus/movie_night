@@ -55,7 +55,7 @@ class VoteInfo:
         
         return self._msg.id
     
-    async def stop_vote(self, ctx:discord.ext.commands.Context) -> Tuple(str, Optional(List[str])):
+    async def stop_vote(self, ctx:discord.ext.commands.Context) -> Tuple[str, Optional[List[str]]]:
         """
         Stops a vote, 
         updates the vote message with the final results,
