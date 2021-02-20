@@ -78,14 +78,20 @@ class VoteInfo:
             winner = random.choice(tie_list)
             
             tie_text = "**, **".join([movie['title'] for movie in tie_list[:-1]])
-            tie_text = F"**{tie_text}**, and **{tie_list[-1]['title']}** were all tied."
+            tie_text = F"**{tie_text}**, and **{tie_list[-1]['title']}** were tied."
         
-        # Get a list of 
-        bad_votes = [movie['title'] for movie in sorted_movie_list if len(movie['votes']) == 0]
+        # Get a list of movies to remove
+        bad_votes = [movie['title'] for movie in sorted_movie_list if len(movie['votes']) <= 1]
+        loss_text = ""
+        
+        # Check if there are any movies to remove, and if so make some text listing them
+        if len(bad_votes) > 0:
+            loss_text = "**, **".join(bad_votes[:-1])
+            loss_text = F"Movies with only one vote or less, to be removed: **{loss_text}**, and **{bad_votes[-1]}**."
         
         await self._clear_msg()
         await self.update_vote_message(ctx, sort_list=True)
-        await ctx.send(F"The winner of the vote, with {num_votes}, is: **{winner['title']}**.\n{tie_text}")
+        await ctx.send(F"The winner of the vote, with {num_votes}, is: **{winner['title']}**.\n{tie_text}\n\n{loss_text}")
         
         return (winner['title'], bad_votes)
     
