@@ -85,9 +85,11 @@ class VoteInfo:
         loss_text = ""
         
         # Check if there are any movies to remove, and if so make some text listing them
-        if len(bad_votes) > 0:
+        if len(bad_votes) > 1:
             loss_text = "**, **".join(bad_votes[:-1])
             loss_text = F"Movies with only one vote or less, to be removed: **{loss_text}**, and **{bad_votes[-1]}**."
+        else:
+            loss_text = F"Movie with only one vote or less, to be removed: **{bad_votes[0]}**."
         
         await self._clear_msg()
         await self.update_vote_message(ctx, sort_list=True)
