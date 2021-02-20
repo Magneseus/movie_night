@@ -125,7 +125,8 @@ class MovieNightCog(commands.Cog):
     @commands.command(name="suggest")
     async def _cmd_add_suggestion(self, ctx: commands.Context, movie_title:str, *args):
         """Adds a movie suggestion to the list of possible movies to watch."""
-        movie_title = movie_title + " " + " ".join(args)
+        if len(args) > 0:
+            movie_title = movie_title + " " + " ".join(args)
         
         async with self.config.guild(ctx.guild).suggestions() as suggestions:
             # Check that the max number of suggestions isn't reached
