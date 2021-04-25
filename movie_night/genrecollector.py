@@ -1,14 +1,14 @@
-import urllib
 import aiohttp
-import time
 import asyncio
 
+# Grab the movie genre in a slightly painful way
 async def get_genre(movie_title, session):
     search_string = "+".join(movie_title.split())
     url = f'https://www.google.com/search?q={search_string}'
-    print(url)
     async with session.get(url) as resp:
         html = await resp.text()
+        # this represents the dot symbol that appears on either
+        # side of the genre on a google knowledge panel.
         parts = html.split("&#8231;")
         if len(parts) < 3:
             return "Unknown"
