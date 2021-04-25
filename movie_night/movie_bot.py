@@ -1,7 +1,4 @@
 import discord
-import asyncio
-import aiohttp
-import time
 
 from fuzzysearch import find_near_matches
 from redbot.core import commands
