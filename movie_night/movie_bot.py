@@ -69,7 +69,7 @@ class MovieNightCog(commands.Cog):
                 else:
                     # Get the list of suggestions for the server
                     suggestions = await self.config.guild_from_id(guild_id).suggestions()
-                    await self.vote_info[guild_id]._set_prev_vote_msg(msg, suggestions)
+                    await self.vote_info[guild_id]._set_prev_vote_msg(msg, suggestions, self.bot.user.id)
         
         return self.vote_info[guild_id]
     

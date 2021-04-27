@@ -218,7 +218,7 @@ class VoteInfo:
         
         self._movie_votes[key] = entry
     
-    async def _set_prev_vote_msg(self, prev_vote_msg:discord.Message, suggestions:List[str]) -> None:
+    async def _set_prev_vote_msg(self, prev_vote_msg:discord.Message, suggestions:List[str], bot_id:int) -> None:
         if prev_vote_msg is not None:
             # If there is a previous vote (ie. the bot shutdown, or crashed)
             # get the votes that are currently on the message
@@ -235,9 +235,12 @@ class VoteInfo:
                 async for user in react.users():
                     offset = VoteInfo.get_alpha_offset_from_emoji(react.emoji)
                     if offset == -1 or offset >= len(self._choices):
+                        # If the reaction is an invalid choice, skip
                         continue
                     
-                    self._apply_vote(self._choices[offset], user.id)
+                    if user.id != bot_id:
+                        # Only if the user ID is NOT the bot ID do we use it
+                        self._apply_vote(self._choices[offset], user.id)
             
             # Set voting enabled
             self._enabled = True
@@ -289,8 +292,26 @@ class VoteInfo:
         self._movie_votes[title]['votes'].add(uid)
     
     def _remove_vote(self, title:str, uid:str) -> None:
-        self._user_votes[uid].remove(title)
-        self._movie_votes[title]['votes'].remove(uid)
+        try:
+            self._user_votes[uid].remove(title)
+            self._movie_votes[title]['votes'].remove(uid)
+        except KeyError:
+            """
+            Niche error case where the first time a vote structure is created is on a remove of the *last* reaction from a user (eg. not including the bot's reaction)
+            
+            So: A bot has started and there is a pre-existing vote in progress, but the _set_prev_vote_msg() function has not run.
+            Therefore there is no filled VoteInfo() structure. 
+            
+            There is a movie "test" with only 2 reactions, the bot and a user "Alyx". Alyx removes their vote, and this triggers the first call to get_vote_info() 
+            since the bot has started. It goes to _set_prev_vote_msg() and since the reaction doesn't exist, never calls _apply_vote() for Alyx with the "test" movie.
+            
+            Finally we arrive at _remove_vote() with which we are calling self._user_votes[uid].remove(title), and the title "test" does not exist in that structure.
+            
+            Similar issue for self._movie_votes[title]['votes'].remove(uid)
+            """
+            # TODO: Better way to do this
+            pass
+        
     
     @staticmethod
     def gen_alpha_emoji(offset:int) -> str:
