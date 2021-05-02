@@ -1,10 +1,12 @@
 import discord
+
 from fuzzysearch import find_near_matches
 from redbot.core import commands
 from redbot.core import Config
 from redbot.core import checks
 
 from .voteinfo import VoteInfo, VoteException
+from .genrecollector import get_genres
 
 class MovieNightCog(commands.Cog):
     """Custom Movie Night Cog"""
@@ -134,16 +136,20 @@ class MovieNightCog(commands.Cog):
                 await ctx.send("Maximum number of suggestions has already been reached!")
                 return
             
+            genre = (await get_genres([movie_title]))[0]
             if movie_title in suggestions:
                 await ctx.send(f"\"**{movie_title}**\" is already in the list!")
             else:
                 suggestions.append(movie_title)
-                await ctx.send(f"\"**{movie_title}**\" has been added to the list of movie suggestions.")
+                if genre != "Unknown":
+                    await ctx.send(f"\"**{movie_title}** ({genre})\" has been added to the list of movie suggestions.")
+                else:
+                    await ctx.send(f"\"**{movie_title}**\" has been added to the list of movie suggestions.\nUnfortunately, I don't know the genre of {movie_title}! Feel free to help me out with: `{ctx.prefix}genre \"{movie_title}\" <genre>`.")
             
             # If a vote is on-going, add the suggestion to the vote list
             vinfo = await self.get_vote_info(ctx.guild.id)
             if vinfo.is_voting_enabled():
-                await vinfo.add_voting_option(movie_title)
+                await vinfo.add_voting_option(movie_title, genre)
     
     @commands.command(name="unsuggest")
     async def _cmd_del_suggestion(self, ctx: commands.Context, suggestion, *args):
@@ -204,6 +210,44 @@ class MovieNightCog(commands.Cog):
         
         await ctx.send(embed=em)
     
+    @commands.command(name="genre")
+    async def _cmd_update_genre(self, ctx: commands.Context, movie, *args):
+        """Updates the genre associated with a movie. eg. [p]genre 1 Romance OR [p]genre \"Shrek 2\" Horror/Thriller"""
+        vinfo = await self.get_vote_info(ctx.guild.id)
+        
+        genre = " ".join(args)
+        
+        movie_index = None
+        
+        if self.represents_int(movie):
+            # Check if it's an integer or a movie title (prefer integer)
+            movie_index = int(movie)
+            
+        if movie_index is not None:
+            # Index genre change
+            movie_index = movie_index - 1
+            
+            async with self.config.guild(ctx.guild).suggestions() as suggestions:
+                if movie_index < 0 or movie_index >= len(suggestions):
+                    await ctx.send(f"That isn't a valid index, sorry! Please check the current list with: `{ctx.prefix}suggestions`.")
+                else:
+                    movie_title = suggestions[movie_index]
+                    await vinfo.update_movie_genre(movie_title, genre)
+                    await ctx.send(f"The genre of \"**{movie_title}**\" has been changed to \"{genre}\".")
+        else:
+            # Fuzzy genre change
+            async with self.config.guild(ctx.guild).suggestions() as suggestions:
+                search_result = self.fuzzy_suggestion_search(movie, suggestions)
+                
+                if search_result is not None:
+                    try:
+                        await vinfo.update_movie_genre(search_result, genre)
+                        await ctx.send(f"The genre of \"**{search_result}**\" has been changed to \"{genre}\".")
+                    except ValueError:
+                        await ctx.send(f"Error when updating matched movie title! `{movie} -> {search_result}`.")
+                else:
+                    await ctx.send(f"Could not find that movie title!")
+                
     
     """Admin Commands"""
     
