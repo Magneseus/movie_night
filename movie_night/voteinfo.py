@@ -97,7 +97,10 @@ class VoteInfo:
         
         await self._clear_msg()
         await self.update_vote_message(ctx, sort_list=True)
-        await ctx.send(F"@everyone The winner of the vote, with {num_votes}, is: **{winner['title']}**.\n{tie_text}\n\n{loss_text}")
+        await ctx.send(
+            F"@everyone The winner of the vote, with {num_votes}, is: **{winner['title']}**.\n{tie_text}\n\n{loss_text}",
+            allowed_mentions=discord.AllowedMentions.all()
+        )
         
         return (winner['title'], bad_votes)
     

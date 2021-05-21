@@ -300,7 +300,10 @@ class MovieNightCog(commands.Cog):
         except VoteException as ve:
             await ctx.send(str(ve))
         else:
-            await ctx.send("@everyone Voting has started!")
+            await ctx.send(
+                "@everyone Voting has started!",
+                allowed_mentions=discord.AllowedMentions.all()
+            )
             await self.config.guild(ctx.guild).prev_vote_msg_id.set(vote_msg_id)
     
     @_cmd_movie_night.command(name="stop_vote")
