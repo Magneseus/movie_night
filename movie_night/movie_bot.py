@@ -139,6 +139,7 @@ class MovieNightCog(commands.Cog):
             genre = (await get_genres([movie_title]))[0]
             if movie_title in suggestions:
                 await ctx.send(f"\"**{movie_title}**\" is already in the list!")
+                return
             else:
                 suggestions.append(movie_title)
                 if genre != "Unknown":
