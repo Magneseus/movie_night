@@ -4,8 +4,6 @@ import random
 from typing import List, Tuple, Dict, Optional
 from functools import cmp_to_key
 
-from .genrecollector import get_genres
-
 alphabet = 'a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q,r,s,t,u,v,w,x,y,z'.split(',')
 alphaset = set(alphabet)
 alpha_to_num = {alphabet[i]: i for i in range(len(alphabet))}
@@ -23,7 +21,6 @@ class VoteInfo:
         self._enabled = False
         self._msg = None
         self._choices = []
-        self._genres = {}
         self._movie_votes = {}
         self._user_votes  = {}
         
@@ -40,7 +37,6 @@ class VoteInfo:
         await self._clear_vote()
         
         self._choices = choices
-        await self._check_for_genres()
         self._create_vote_structures()
         
         await self.update_vote_message(ctx)
@@ -134,10 +130,9 @@ class VoteInfo:
             
             entry_title = entry['title']
             alpha = entry['alpha']
-            genre = self._genres[entry_title]
             icon = f":regional_indicator_{alpha}:"
             
-            msg.append(f"{bar_fill}{bar_empty}{icon} - **{entry_title}** · *{genre}* · ({num_votes})")
+            msg.append(f"{bar_fill}{bar_empty}{icon} - **{entry_title}** ({num_votes})")
         
         content = title + border + "\n" + "\n".join(msg) + "\n" + border
         
@@ -161,15 +156,12 @@ class VoteInfo:
             # TODO: log this
             raise VoteException("Unknown error occurred!")
     
-    async def add_voting_option(self, movie_title:str, movie_genre:str) -> None:
+    async def add_voting_option(self, movie_title:str) -> None:
         """Add a new voting option to the vote, while vote is happening"""
         index = len(self._choices)
         
         # Add to the list of choices
         self._choices.append(movie_title)
-        
-        # Store the genre
-        self._genres[movie_title] = movie_genre
         
         # Create an entry in the voting structures
         self._add_vote_structure(movie_title, index)
@@ -211,10 +203,6 @@ class VoteInfo:
     
     def check_msg_id(self, id:int) -> bool:
         return self._msg is not None and id == self._msg.id
-        
-    async def update_movie_genre(self, movie_title, movie_genre):
-        self._genres[movie_title] = movie_genre
-        await self.update_vote_message(None)
     
     """ Private methods """
     
@@ -243,7 +231,6 @@ class VoteInfo:
             
             # Create vote structures with the given choices
             self._choices = suggestions
-            await self._check_for_genres()
             self._create_vote_structures()
             
             # Get the reactions (votes)
@@ -328,19 +315,6 @@ class VoteInfo:
             # TODO: Better way to do this
             pass
         
-    
-    async def _check_for_genres(self):
-        # determine which movies require a genre added
-        needs_genre = []
-        for movie in self._choices:
-            if movie not in self._genres or self._genres[movie] is None:
-                needs_genre.append(movie)
-        
-        if len(needs_genre) > 0:
-            # now get the genres for these movies
-            new_genres = await get_genres(needs_genre)
-            for i in range(0, len(needs_genre)):
-                self._genres[needs_genre[i]] = new_genres[i]
     
     @staticmethod
     def gen_alpha_emoji(offset:int) -> str:
