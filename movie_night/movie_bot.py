@@ -8,6 +8,8 @@ from redbot.core import checks
 from .voteinfo import VoteInfo, VoteException
 from .genrecollector import get_genres
 
+import requests
+
 class MovieNightCog(commands.Cog):
     """Custom Movie Night Cog"""
     
@@ -248,7 +250,29 @@ class MovieNightCog(commands.Cog):
                         await ctx.send(f"Error when updating matched movie title! `{movie} -> {search_result}`.")
                 else:
                     await ctx.send(f"Could not find that movie title!")
-                
+
+    @commands.command(name="bonk")
+    async def _cmd_bonk_user(self, ctx: commands.Context, user):
+        """Hits up the imgflip API to generate a custom bonk meme for the named user"""
+
+        # TODO: Pretty sure this'll fail on a name with spaces in it. Pretty sure lines 132/133 have the fix for that.
+
+        # Quick error check
+        if user == "":
+            await ctx.send("You did it wrong.")
+            return
+        
+        # Some info we need hardcoded. Would be more proper to define these outside of this function
+        # But for the sake of cleanliness I'm keeping my mess contained here.
+        url = 'https://api.imgflip.com/caption_image'
+        params = { 'template_id' : '237388506', 'username' : 'matt9148', 'password' : '19910408', 'text1' : user }
+
+        # Create the meme and get the url of the image
+        response = requests.post(url, params)
+        the_link = response.json()['data']['url']
+
+        # Release the bonk
+        await ctx.send(the_link)
     
     """Admin Commands"""
     
